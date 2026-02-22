@@ -52,19 +52,65 @@ static std::vector<Point> rqSerial(std::vector<Point>& v, const Point& from, con
 // Parallel range query
 static std::vector<Point> rqPar1(std::vector<Point>& v, const Point& from, const Point& to) {
 	std::vector<Point> result;
+	std::mutex m;
 
 	// TODO use std::mutex for thread safe access of result
+	std::for_each(std::execution::par, v.begin(), v.end(), [from, to, &result, &m](const Point& p) {
+		if (from <= p && p <= to) {
+			std::lock_guard<std::mutex> lock(m);
+			result.push_back(p);
+		}
+	});
 	return result;
 }
+
+
+static std::vector<Point> thr_func(const Point from, const Point to, std::vector<Point>::const_iterator begin, std::vector<Point>::const_iterator end) {
+	std::vector<Point> result;
+	
+	std::for_each(begin, end, [from, to, &result](const Point& p) {
+		if (from <= p && p <= to) {
+			result.push_back(p);
+		}
+	});
+
+	return result;
+}
+
+struct Range {
+	std::vector<Point>::const_iterator begin;
+	std::vector<Point>::const_iterator end;
+};
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Parallel range query
 static std::vector<Point> rqPar2(std::vector<Point>& v, const Point& from, const Point& to) {
 	const auto nThreads = std::thread::hardware_concurrency();
+	std::vector<std::future<std::vector<Point>>> futures;
+	
+	//split v vector into subranges to be sent to threads
+	const std::size_t size = v.size();
+	const std::size_t range_size = size / nThreads;
+
+	std::vector<Range> ranges;
+	std::vector<Point>::const_iterator begin = v.begin();
+
+	for(int i = 0; i < nThreads - 1; i++) {
+		ranges.emplace_back(begin + i * range_size, begin + (i + 1) * range_size);
+	}
+	//last thread needs slightly bigger range in case size % nThreads != 0
+	ranges.emplace_back(begin + (nThreads - 1) * range_size, v.end());
+
+
+	for (int i = 0; i < nThreads; i++) {
+		futures.emplace_back(std::async(std::launch::async, thr_func, from, to, ranges[i].begin, ranges[i].end));
+	}
 
 	std::vector<Point> result;
-
-	// TODO: don't use synchronization, but serial reduction
+	for (auto& f : futures) {
+		std::vector<Point> points = f.get();
+		result.insert(result.end(), points.begin(), points.end());
+	}
 	return result;
 }
 
