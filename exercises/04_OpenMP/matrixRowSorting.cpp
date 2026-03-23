@@ -20,6 +20,11 @@ void matrixSortSeq(std::vector<std::vector<int>>& A) {
 // parallel sorting all arrays A[i]
 void matrixSortOmp(std::vector<std::vector<int>>& A) {
 	// TODO use OMP to parallelize a for loop
+	#pragma omp parallel default(none) shared(A)
+		#pragma omp for schedule(guided, 1)
+		for (size_t i = 0; i < A.size(); i++) {
+			std::sort(A[i].begin(), A[i].end());
+		}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////

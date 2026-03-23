@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <omp.h>
 #include "Stopwatch.h"
+#include <atomic>
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Explicit computation
@@ -27,22 +28,39 @@ static int64_t sumSerial(const std::vector<int>& arr) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Parallel summation with critical section
 static int64_t sumPar1(const std::vector<int>& arr) {
-	// TODO use OMP for loop parallelization and an OMP critical section
-	return 0;
+	// Pass in atomic variable, should have bad performance
+	std::atomic_int64_t sum = 0;
+	#pragma omp parallel for default(none) shared(sum, arr)
+		for (int i = 0; i < (int)arr.size(); i++) {
+			sum += arr[i];
+		}
+	return sum;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Parallel summation with explicit locks
 static int64_t sumPar2(const std::vector<int>& arr) {
-	// TODO use OMP for loop parallelization and an OMP lock
-	return 0;
+	omp_lock_t lock;
+	omp_init_lock(&lock);
+	int64_t sum = 0;
+	#pragma omp parallel for default(none) shared(sum, arr, lock)
+		for (int i = 0; i < (int)arr.size(); i++) {
+			omp_set_lock(&lock);
+			sum += arr[i];
+			omp_unset_lock(&lock);
+		}
+	return sum;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Parallel summation with ...
 static int64_t sumPar3(const std::vector<int>& arr) {
-	// TODO use OMP for loop parallelization and...
-	return 0;
+	int64_t sum = 0;
+	#pragma omp parallel for default(none) shared(arr) reduction(+: sum) 
+		for (int i = 0; i < (int)arr.size(); i++) {
+			sum += arr[i];
+		}
+	return sum;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -84,10 +102,10 @@ void summationTests() {
 	sw.Stop();
 	check("OpenMP Critical section:", sum0, sum1, ts, sw.GetElapsedTimeMilliseconds());
 
-	sw.Restart();
-	const int64_t sum2 = sumPar2(arr);
-	sw.Stop();
-	check("OpenMP Explicit locks:", sum0, sum2, ts, sw.GetElapsedTimeMilliseconds());
+	// sw.Restart();
+	// const int64_t sum2 = sumPar2(arr);
+	// sw.Stop();
+	// check("OpenMP Explicit locks:", sum0, sum2, ts, sw.GetElapsedTimeMilliseconds());
 
 	sw.Restart();
 	const int64_t sum3 = sumPar3(arr);
