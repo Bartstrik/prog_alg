@@ -105,9 +105,9 @@ int DFSearcher::startSearching(int bestSolution) {
 				if (max >= MinSplitSize && id != m_myID) {
 					auto& s = (*m_searchers)[id];
 
-					//std::cout << "Work stealing" << std::endl;
+					// std::cout << "Work stealing" << std::endl;
 					if (m_searching) stealWorkFrom(s);
-					//std::cout << openNodes() << std::endl;
+					// std::cout << openNodes() << std::endl;
 				}
 			}
 			

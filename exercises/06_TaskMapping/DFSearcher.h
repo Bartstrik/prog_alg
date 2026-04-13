@@ -120,10 +120,28 @@ private:
 	/// Steal nodes from searcher s
 	/// </summary>
 	void stealWorkFrom(DFSearcher& s) {
-		//std::scoped_lock monitor(m_mutex, s.m_mutex); // lock both open lists (needs C++17)
-
-		auto lambda = [this, &s] {
+		// std::scoped_lock monitor(m_mutex, s.m_mutex); // lock both open lists (needs C++17)
+		const size_t n = s.openNodes();
+		
+		auto lambda = [this, n, &s] {
 			// TODO
+
+			// should remove every pth vertex from the open list of the given DFSearcher s 
+			// and move these vertices into its own open list
+			const size_t p = m_searchers->size();
+			
+			auto it = s.m_openList.begin();
+			auto end = s.m_openList.end();
+
+			const size_t amount = n / p;			
+
+			std::advance(it, p - 1);
+			std::advance(it, p * (amount - 1));
+
+			for (int i = 0; i < amount; ++i) {
+				this->m_openList.splice(this->m_openList.begin(), s.m_openList, it);
+				std::advance(it, -p);
+			}
 		};
 
 		// dead-lock prevention by ordered ressource allocation

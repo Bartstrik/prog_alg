@@ -218,18 +218,31 @@ int TaskGraph::searchBranchAndBound(int idx, int bestSolution) {
 
 	} else {
 		// TODO recursive branch
+		
 
 		// copy current task start times
+		int time = m_sorted[idx]->m_start;
 
 		// place t in some processes if the resulting duration is less than the current best solution
 		for (auto it = m_processes.begin(); it < m_processes.end(); it++) {
 			// TODO
+			if (time + it->getDuration() < bestSolution) {
+				*it += m_sorted[idx];
+				*it += time;
 
+				const int ret = searchBranchAndBound(idx + 1, bestSolution);
+				if (ret < bestSolution) bestSolution = ret;
+
+				*it -= m_sorted[idx];
+				*it -= time;
+			} 
 			// early return
 
 		}
 
-		return 0;
+		
+
+		return bestSolution;
 	}
 }
 

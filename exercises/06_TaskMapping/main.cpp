@@ -97,6 +97,37 @@ static void graph3(int p, int s) {
 	cout << "\n\nGraph 3 (Ex. 3.3 LU Decomposition)" << endl;
 
 	// TODO create graph and find mapping
+	Task t1(1, 1);
+	Task t2(2, 1);
+	Task t3(3, 1);
+	Task t4(4, 1);
+	Task t5(5, 1);
+	Task t6(6, 1);
+	Task t7(7, 1);
+	Task t8(8, 1);
+	Task t9(9, 1);
+	Task t10(10, 1);
+	Task t11(11, 1);
+	Task t12(12, 1);
+	Task t13(13, 1);
+	Task t14(14, 1);
+
+	t1.addTasks({ &t2, &t3, &t4, &t5 });
+	t2.addTasks({ &t6, &t7 });
+	t3.addTasks({ &t8, &t9 });
+	t4.addTasks({ &t6, &t8 });
+	t5.addTasks({ &t7, &t9 });
+	t6.addTask(&t10);
+	t7.addTask(&t12);
+	t8.addTask(&t11);
+	t10.addTasks({ &t11, &t12 });
+	t11.addTask(&t13);
+	t12.addTask(&t13);
+	t13.addTask(&t14);
+
+	TaskGraph g(p, 14);
+
+	findMapping(g, &t1, s);
 
 }
 
