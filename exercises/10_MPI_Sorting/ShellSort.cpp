@@ -51,6 +51,49 @@ static void oddEvenSort(const int p, const int nlocal, const int id, float eleme
 // elements: partioned data to be sorted
 void shellSort(const int nProcs, const int nlocal, const int myID, float elements[]) {
 	// TODO use MPI
+	// p0 <-> p_p
+	// p1 <-> p_p-1
+	// p2 <-> p_p-2
+	// p3 <-> p_p-3
+
+	// p0 <-> p3
+	// p1 <-> p2
+	// p_p-3 <-> p_p
+	// p_p-2 <-> p_p-1
+
+	// p0 <-> p1
+	// p2 <-> p3
+	// p_p-3 <-> p_p-2
+	// p_p-1 <-> p_p
+	
+	// l = log(p)
+	int a = nProcs;
+	int l = 1;
+	while (a >> 1) {
+		l++;
+	}
+
+	float received[nlocal];
+	float temp[nlocal];
+
+	for (int i = 0; i < l; i++) {
+		const int p = ((nProcs - myID) >> i) - 1;
+		MPI_Sendrecv(elements, nlocal, MPI_FLOAT, p, 0, received, nlocal, MPI_FLOAT, p, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	}
+
+
+
+
+
+
+	compareSplit(nlocal, elements, received, temp, )
+
+	// for (int i = 0; i < l; i++) { // 3 loops
+	// 	for (int j = 1 << i; j <= 1 << i; j << 1) { // 1 loop -> 2 loops -> 4 loops
+	// 		for (int k = 1 << (l - j); k > 0; k >> 1) { // 4 loops -> 2 loops -> 1 loop
+	// 		}
+	// 	}
+	// }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
