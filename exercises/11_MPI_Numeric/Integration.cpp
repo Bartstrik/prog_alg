@@ -7,16 +7,46 @@
 // num integration in the domain [0,1] of f(x) = 1/(1 + x*x)
 // midpoint or rectangle rule
 static double rectangleRule(int nIntervals) {
-	// TODO use MPI
-	return 0;
+	int id, p;
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &id);
+	MPI_Comm_size(MPI_COMM_WORLD, &p);
+
+	const double width = 1.0 / nIntervals;
+	const double local_domain_start = id / p;
+	const double local_domain_end = (id + 1) / p;
+	double sum = 0.0;
+	
+	for (double x = width * 0.5 + local_domain_start; x < local_domain_end; x += width) {
+		const double height = 1 / (1 + x*x);
+		sum += height * width;
+	}
+	
+	return sum;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+///////// /////////////////////////////////////////////////////////////////////////////////////////
 // num integration in the domain [0,1] of f(x) = 1/(1 + x*x)
 // trapezoidal rule
 static double trapezoidalRule(int nIntervals) {
-	// TODO use MPI
-	return 0;
+	int id, p;
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &id);
+	MPI_Comm_size(MPI_COMM_WORLD, &p);
+
+	const double width = 1.0 / nIntervals;
+	const double local_domain_start = id / p;
+	const double local_domain_end = (id + 1) / p;
+	double sum = 0.0;
+	
+	double height_start = 1 / (1 + local_domain_start*local_domain_start);
+	for (double x = local_domain_start; x < local_domain_end; x += width) {
+		const double height_end = 1 / (1 + (x + width) * (x + width)); 
+		sum += (height_start + height_end) * 0.5 * width;
+		height_start = height_end;
+	}
+	
+	return sum;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

@@ -10,11 +10,11 @@ void integrationTests();
 // Matrix multiplaction tests
 // For OpenMP performance measurements don't use mpirun, just run the program standalone
 int main() {
-	matrixMultiplicationTests();
+	// matrixMultiplicationTests();
 
 	MPI_Init(nullptr, nullptr);
 
-	cannonsTests();
+	// cannonsTests();
 	integrationTests();
 
 	MPI_Finalize();

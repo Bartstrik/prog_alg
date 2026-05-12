@@ -51,6 +51,10 @@ static void cannonBlocking(int a[], int b[], int c[], const int nlocal, const in
 	MPI_Cart_shift(comm2D, 0, -1, &downRank, &upRank);
 
 	// main computation loop
+	// non-blocking potentials: 
+	// - the up shift currently is blocked by the left shift
+	// - the MPI_sendrecv_replace internally are just 2 seperate MPI_sendrecv functions,
+	//	 which means that the 2nd part is also unnecessarily blocked by the first subfunction
 	for (int i = 0; i < pSqrt; i++) {
 		// matrix multiplication: cLocal += aLocal * bLocal
 		matMultSeq(a, b, c, nlocal);
@@ -76,7 +80,66 @@ static void cannonBlocking(int a[], int b[], int c[], const int nlocal, const in
 // Cannon's algorithm using non-blocking send and receive operations and Cartesian grid
 // nlocal is the local number of elements
 static void cannonNonBlocking(int a[], int b[], int c[], const int nlocal, const int pSqrt) {
-	// TODO use MPI
+	const int dims[] = { pSqrt, pSqrt };	// [y,x]
+	const int periods[] = { true, true };
+	MPI_Comm comm2D;
+
+	// set up the Cartesian topology with wraparound connections and rank reordering
+	MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periods, 1, &comm2D);
+
+	// get rank and coordinates with respect to the new topology
+	int my2Drank;
+	int myCoords[2];	// [y,x]
+
+	MPI_Comm_rank(comm2D, &my2Drank);
+	MPI_Cart_coords(comm2D, my2Drank, 2, myCoords);
+
+	// initialize C
+	const int size = nlocal*nlocal;
+	std::fill_n(c, size, 0);
+
+	// perform the initial matrix alignment: first for A then for B
+	int shiftSrc, shiftDst;
+
+	MPI_Cart_shift(comm2D, 1, -myCoords[0], &shiftSrc, &shiftDst);
+	MPI_Sendrecv_replace(a, size, MPI_INT, shiftDst, 1, shiftSrc, 1, comm2D, MPI_STATUSES_IGNORE);
+	MPI_Cart_shift(comm2D, 0, -myCoords[1], &shiftSrc, &shiftDst);
+	MPI_Sendrecv_replace(b, size, MPI_INT, shiftDst, 1, shiftSrc, 1, comm2D, MPI_STATUSES_IGNORE);
+
+	// compute ranks of the left and up shifts
+	int leftRank, rightRank, downRank, upRank;
+
+	MPI_Cart_shift(comm2D, 1, -1, &rightRank, &leftRank);
+	MPI_Cart_shift(comm2D, 0, -1, &downRank, &upRank);
+
+	// main computation loop
+	// non-blocking potentials: 
+	// - the up shift currently is blocked by the left shift
+	// - the MPI_sendrecv_replace internally are just 2 seperate MPI_sendrecv functions,
+	//	 which means that the 2nd part is also unnecessarily blocked by the first subfunction
+	//   ofcourse, we do need to block the thread before starting the next matrix multiplication
+	MPI_Request reqs[2];
+	for (int i = 0; i < pSqrt; i++) {
+		// matrix multiplication: cLocal += aLocal * bLocal
+		matMultSeq(a, b, c, nlocal);
+
+		// shift A left by one
+		MPI_Isendrecv_replace(a, size, MPI_INT, leftRank, 1, rightRank, 1, comm2D, &reqs[0]);
+
+		// shift B up by one
+		MPI_Isendrecv_replace(b, size, MPI_INT, upRank, 1, downRank, 1, comm2D, &reqs[1]);
+		MPI_Waitall(2, reqs, MPI_STATUSES_IGNORE);
+	}
+
+	// restore the original distribution of A and B 
+	MPI_Cart_shift(comm2D, 1, myCoords[0], &shiftSrc, &shiftDst);
+	MPI_Sendrecv_replace(a, size, MPI_INT, shiftDst, 1, shiftSrc, 1, comm2D, MPI_STATUSES_IGNORE);
+	MPI_Cart_shift(comm2D, 0, myCoords[1], &shiftSrc, &shiftDst);
+	MPI_Sendrecv_replace(b, size, MPI_INT, shiftDst, 1, shiftSrc, 1, comm2D, MPI_STATUSES_IGNORE);
+
+	// free up communicator
+	MPI_Comm_free(&comm2D);
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////

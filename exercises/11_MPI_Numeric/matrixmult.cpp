@@ -36,7 +36,22 @@ void matMultSeqStandard(const int a[], const int b[], int c[], const int n) {
 // Cache aware serial implementation
 // Matrix C has to be initialized with 0 in advance
 void matMultSeq(const int a[], const int b[], int c[], const int n) {
-	// TODO
+	// row loop
+	for (int i = 0; i < n; i++) {
+		// start by zero-initializing c row
+		for (int j = 0; j < n; j++) {
+			c[i * n + j] = 0;
+		}
+
+		// column loop
+		for (int j = 0; j < n; j++) {
+			// instead of doing c = arow * bcol
+			// we do crow += a * brow for every element
+			for (int k = 0; k < n; k++) {
+				c[i * n + k] += a[i * n + j] * b[j * n + k];
+			}
+		}
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -44,6 +59,25 @@ void matMultSeq(const int a[], const int b[], int c[], const int n) {
 // Cache aware
 void matMultPar(const int a[], const int b[], int c[], const int n) {
 	// TODO use OMP
+	// row loop
+	#pragma omp parallel for 
+	{
+		for (int i = 0; i < n; i++) {
+			// start by zero-initializing c row
+			for (int j = 0; j < n; j++) {
+				c[i * n + j] = 0;
+			}
+
+			// column loop
+			for (int j = 0; j < n; j++) {
+				// instead of doing c = arow * bcol
+				// we do crow += a * brow for every element
+				for (int k = 0; k < n; k++) {
+					c[i * n + k] += a[i * n + j] * b[j * n + k];
+				}
+			}
+		}
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
