@@ -84,7 +84,58 @@ void processSerialOpt(const fipImage& input, fipImage& output, const int horFilt
 
 	const int halfFilterSize = filterSize/2;
 
-	// TODO
+	// iterate all rows of the output image
+	for (unsigned v = halfFilterSize; v < output.getHeight() - halfFilterSize; v++) {
+
+		RGBQUAD* outpRow = reinterpret_cast<RGBQUAD*>(output.getScanLine(v));
+		outpRow += halfFilterSize;
+
+		// iterate all pixels of the current row
+		for (unsigned u = halfFilterSize; u < output.getWidth() - halfFilterSize; u++) {
+			RGBQUAD inputColor;
+			int horColor[3]{};
+			int verColor[3]{};
+			int filterPos = 0;
+
+			// iterate all filter coefficients
+			for (unsigned j = 0; j < filterSize; j++) {
+				//getting the whole line
+				RGBQUAD* inpRow = reinterpret_cast<RGBQUAD*>(input.getScanLine(v + j - halfFilterSize));
+				// and offsetting it by u - halfFilterSize
+				inpRow += (u - halfFilterSize);
+
+				for (unsigned i = 0; i < filterSize; i++) {
+					const int horFilterCoeff = horFilter[filterPos];
+					const int verFilterCoeff = verFilter[filterPos];
+
+					// read pixel color at position (u + i - halfFilterSize, v + j - halfFilterSize) and store the color in inColor
+					// input.getPixelColor(u + i - halfFilterSize, v + j - halfFilterSize, &inputColor);
+
+					inputColor = *inpRow;
+					inpRow++;
+
+					// apply one filter coefficient of the horitontal filter
+					horColor[0] += horFilterCoeff*inputColor.rgbBlue;
+					horColor[1] += horFilterCoeff*inputColor.rgbGreen;
+					horColor[2] += horFilterCoeff*inputColor.rgbRed;
+					// apply one filter coefficient of the vertical filter
+					verColor[0] += verFilterCoeff*inputColor.rgbBlue;
+					verColor[1] += verFilterCoeff*inputColor.rgbGreen;
+					verColor[2] += verFilterCoeff*inputColor.rgbRed;
+
+					filterPos++;
+				}
+			}
+
+			// compute filter result and store it in output pixel (col, row)
+			*outpRow = { 
+				dist(horColor[0], verColor[0]), 
+				dist(horColor[1], verColor[1]), 
+				dist(horColor[2], verColor[2]), 
+				255 };
+			outpRow++;
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -93,7 +144,60 @@ void processOMP(const fipImage& input, fipImage& output, const int horFilter[], 
 	assert(input.getWidth() == output.getWidth() && input.getHeight() == output.getHeight() && input.getImageSize() == output.getImageSize());
 	assert(input.getBitsPerPixel() == sizeof(RGBQUAD)*CHAR_BIT);
 
-	// TODO use OMP
+	const int halfFilterSize = filterSize/2;
+
+	// iterate all rows of the output image
+	#pragma omp parallel for default(private) shared(input, output, horFilter, verFilter, filterSize, halfFilterSize)
+	for (unsigned v = halfFilterSize; v < output.getHeight() - halfFilterSize; v++) {
+		// iterate all pixels of the current row
+		RGBQUAD* outpRow = reinterpret_cast<RGBQUAD*>(output.getScanLine(v));
+		outpRow += halfFilterSize;
+
+		for (unsigned u = halfFilterSize; u < output.getWidth() - halfFilterSize; u++) {
+			RGBQUAD inputColor;
+			int horColor[3]{};
+			int verColor[3]{};
+			int filterPos = 0;
+
+			// iterate all filter coefficients
+			for (unsigned j = 0; j < filterSize; j++) {
+				//getting the whole line
+				RGBQUAD* inpRow = reinterpret_cast<RGBQUAD*>(input.getScanLine(v + j - halfFilterSize));
+				// and offsetting it by u - halfFilterSize
+				inpRow += (u - halfFilterSize);
+
+				for (unsigned i = 0; i < filterSize; i++) {
+					const int horFilterCoeff = horFilter[filterPos];
+					const int verFilterCoeff = verFilter[filterPos];
+
+					// read pixel color at position (u + i - halfFilterSize, v + j - halfFilterSize) and store the color in inColor
+					// input.getPixelColor(u + i - halfFilterSize, v + j - halfFilterSize, &inputColor);
+
+					inputColor = *inpRow;
+					inpRow++;
+
+					// apply one filter coefficient of the horitontal filter
+					horColor[0] += horFilterCoeff*inputColor.rgbBlue;
+					horColor[1] += horFilterCoeff*inputColor.rgbGreen;
+					horColor[2] += horFilterCoeff*inputColor.rgbRed;
+					// apply one filter coefficient of the vertical filter
+					verColor[0] += verFilterCoeff*inputColor.rgbBlue;
+					verColor[1] += verFilterCoeff*inputColor.rgbGreen;
+					verColor[2] += verFilterCoeff*inputColor.rgbRed;
+
+					filterPos++;
+				}
+			}
+
+			// compute filter result and store it in output pixel (col, row)
+			*outpRow = { 
+				dist(horColor[0], verColor[0]), 
+				dist(horColor[1], verColor[1]), 
+				dist(horColor[2], verColor[2]), 
+				255 };
+			outpRow++;
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -122,8 +226,40 @@ void processSYCL(sycl::queue& q, const fipImage& input, fipImage& output, const 
 
 		h.parallel_for(ndr, [=](auto ii) {
 			const sycl::id<2> outPos = ii.get_global_id();
-			
-			// TODO use SYCL
+			int v = outPos[0];
+			int u = outPos[1];
+
+			int filterSize = horAcc.get_range()[0];
+			int horColor[3]{};
+			int verColor[3]{};
+			int filterPos = 0;
+
+			//iterate over neighbouring pixels
+			for (int j = 0; j < filterSize; ++j) {
+				for (int i = 0; i < filterSize; ++i) {
+					const int horFilterCoeff = horAcc[j][i];
+					const int verFilterCoeff = verAcc[j][i];
+
+					RGBQUAD inputColor = inpAcc[v + j - filterSize/2][u + i - filterSize/2];
+
+					horColor[0] += horFilterCoeff*inputColor.rgbBlue;
+					horColor[1] += horFilterCoeff*inputColor.rgbGreen;
+					horColor[2] += horFilterCoeff*inputColor.rgbRed;
+					// apply one filter coefficient of the vertical filter
+					verColor[0] += verFilterCoeff*inputColor.rgbBlue;
+					verColor[1] += verFilterCoeff*inputColor.rgbGreen;
+					verColor[2] += verFilterCoeff*inputColor.rgbRed;
+
+					filterPos++;
+				}
+			}
+
+			// compute filter result and store it in output pixel (col, row)
+			outAcc[v][u] = { 
+				dist(horColor[0], verColor[0]), 
+				dist(horColor[1], verColor[1]), 
+				dist(horColor[2], verColor[2]), 
+				255 };
 		});
 	});
 }

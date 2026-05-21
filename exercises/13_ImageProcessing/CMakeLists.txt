@@ -34,7 +34,7 @@ target_link_libraries(${TARGET_NAME} PRIVATE tbb "${FREEIMAGEPLUS_LIBRARIES}" "$
 # Set compiler and linker options
 if(CUDAToolkit_BIN_DIR)
     message(STATUS "CUDA available")
-    set(DPCPP_FLAGS ${DPCPP_FLAGS} -qopenmp -fsycl -fsycl-targets=nvptx64-nvidia-cuda)
+    set(DPCPP_FLAGS ${DPCPP_FLAGS} -qopenmp -fsycl )# -fsycl-targets=nvptx64-nvidia-cuda)
 else()
     message(STATUS "CUDA not found")
     set(DPCPP_FLAGS ${DPCPP_FLAGS} -qopenmp -fsycl)
